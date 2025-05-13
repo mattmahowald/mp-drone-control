@@ -49,12 +49,16 @@
 
 ### Tasks
 
-- [ ] Set up project GitHub repo with standard Python project structure
-- [ ] Download MediaPipe Hands dataset (or write script to extract landmarks)
-- [ ] Create Python pipeline to:
-  - [ ] Load raw keypoints
-  - [ ] Label samples by hand signal
-  - [ ] Normalize and augment data (optional)
+- [x] Set up project GitHub repo with standard Python project structure
+  - [x] Created Poetry-based Python project structure
+  - [x] Added comprehensive README.md
+  - [x] Added Makefile for common development tasks
+  - [x] Set up development environment with Poetry
+- [x] Download ASL Hands dataset (or write script to extract landmarks)
+- [x] Create Python pipeline to:
+  - [x] Load raw keypoints
+  - [x] Label samples by hand signal
+  - [x] Normalize and augment data (optional)
 - [ ] Split dataset into train/val/test splits (see Task 6)
 - [ ] Commit preprocessing pipeline and dataset loader
 

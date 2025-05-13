@@ -1,11 +1,13 @@
 import zipfile
 import requests
+import shutil
 from pathlib import Path
 
 
 def download_and_extract(url: str, output_dir: Path):
     output_dir.mkdir(parents=True, exist_ok=True)
     zip_path = output_dir / "asl_digits.zip"
+    temp_dir = output_dir / "temp_extract"
 
     if not zip_path.exists():
         print(f"⬇️  Downloading dataset to {zip_path}")
@@ -18,10 +20,26 @@ def download_and_extract(url: str, output_dir: Path):
         print("✅ Zip already exists. Skipping download.")
 
     print("📦 Unzipping...")
+    # Extract to a temporary directory first
+    temp_dir.mkdir(exist_ok=True)
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
-        zip_ref.extractall(output_dir)
+        zip_ref.extractall(temp_dir)
 
-    print(f"✅ Dataset extracted to {output_dir}")
+    # Move the Dataset directory to the correct location
+    extracted_dir = next(temp_dir.glob("Sign-Language-Digits-Dataset-*"))
+    dataset_dir = extracted_dir / "Dataset"
+    if dataset_dir.exists():
+        target_dir = output_dir / "Dataset"
+        if target_dir.exists():
+            shutil.rmtree(target_dir)
+        shutil.move(str(dataset_dir), str(target_dir))
+        print(f"✅ Dataset organized in {target_dir}")
+    else:
+        print("❌ Could not find Dataset directory in extracted files")
+
+    # Clean up temporary directory and zip file
+    shutil.rmtree(temp_dir)
+    zip_path.unlink()
 
 
 if __name__ == "__main__":
