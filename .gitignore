@@ -151,6 +151,9 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# Poetry
+poetry.lock
+
 # Pyre type checker
 .pyre/
 
@@ -172,3 +175,11 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+
+# Data
+data/raw/
+data/processed/
+data/interim/
+models/
+wandb/
