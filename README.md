@@ -100,6 +100,30 @@ The main data processing script (`scripts/process_asl_data.py`) uses this module
 
 ## Usage
 
+### Training and Evaluating Small & Large Models
+
+This project supports automated training and evaluation of both a small and a large MLP model for hand gesture recognition. Results are summarized for easy comparison.
+
+**Train both models:**
+
+```bash
+poetry run python scripts/train.py
+```
+
+**Evaluate both models and generate a comparison file:**
+
+```bash
+poetry run python scripts/evaluate.py
+```
+
+- The evaluation script writes a summary of test accuracy and F1 for both models to `models/model_comparison.txt`.
+- Model checkpoints are saved in the `models/` directory as `small_model.pth` and `large_model.pth`.
+
+**Next steps:**
+
+- Export both models to ONNX for mobile deployment.
+- Benchmark inference speed and resource usage on a mobile device or emulator.
+
 ### Training
 
 1. **Prepare your dataset**

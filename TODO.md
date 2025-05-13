@@ -75,13 +75,13 @@
 
 ### Tasks
 
-- [ ] Implement a basic pipeline:
-  - [ ] Use MediaPipe to extract 21 hand landmarks (x,y,z)
-  - [ ] Build classifier on top of flattened keypoint vectors
-  - [ ] Start with simple MLP
-- [ ] Implement MobileNetV2 or EfficientNet classifier (on keypoints or image patches)
-- [ ] Train baseline model
-- [ ] Log metrics: accuracy, precision, recall, F1
+- [x] Implement a basic pipeline:
+  - [x] Use MediaPipe to extract 21 hand landmarks (x,y,z)
+  - [x] Build classifier on top of flattened keypoint vectors
+  - [x] Start with simple MLP
+- [x] Implement MobileNetV2 or EfficientNet classifier (on keypoints or image patches)
+- [x] Train baseline model
+- [x] Log metrics: accuracy, precision, recall, F1
 
 ---
 
@@ -100,12 +100,11 @@
 
 ### Tasks
 
-- [ ] Use MediaPipe in real-time video capture (OpenCV)
-- [ ] Integrate trained model inference
-  - [ ] Real-time prediction with visualization (overlay gesture label on screen)
-- [ ] Measure latency and FPS
-- [ ] Write scripts to demo prediction pipeline
-- [ ] (Optional) Export to TensorFlow Lite
+- [x] Use MediaPipe in real-time video capture (OpenCV)
+- [x] Integrate trained model inference
+  - [x] Real-time prediction with visualization (overlay gesture label on screen)
+- [x] Measure latency and FPS
+- [x] Write scripts to demo prediction pipeline
 
 ---
 
@@ -121,6 +120,52 @@
 
 - [ ] Screenshots or short video demos
 - [ ] Failure case analysis
+
+---
+
+## Model Size Comparison & Performance Discussion
+
+### Experimental Design
+
+- [ ] Define "small" and "large" model architectures (parameter count, type, resource constraints)
+- [ ] Document model definitions in the report methods section
+
+### Evaluation Criteria
+
+- [ ] Select and document performance metrics (accuracy, F1, precision, recall, inference time, model size, memory usage)
+- [ ] Ensure identical dataset splits and preprocessing for both models
+- [ ] Plan and document statistical significance testing (e.g., paired t-test, confidence intervals)
+
+### Implementation & Training
+
+- [x] Implement both small and large models in `src/mp_drone_control/models/`
+- [x] Use consistent training hyperparameters and procedures
+- [x] Set random seeds and document all settings for reproducibility
+
+### Evaluation & Analysis
+
+- [x] Evaluate both models on the same test set and collect all metrics
+- [ ] Compare inference speed, resource usage, and model file size
+- [ ] Generate confusion matrices and error analysis (if relevant)
+- [ ] Perform statistical analysis and report confidence intervals
+
+### Reporting
+
+- [x] Write a dedicated section in the report comparing small and large models
+- [ ] Present results in tables/plots with clear discussion of trade-offs
+- [ ] Discuss where the small model matches or outperforms the large model, and any limitations
+- [ ] Document all code, seeds, and environment details for reproducibility
+
+### Performance Discussion
+
+- [x] Write a performance discussion section interpreting results, trade-offs, and implications for deployment or future work
+
+### Additional Tasks
+
+- [ ] Export both models to ONNX for mobile deployment
+- [ ] Benchmark both models on a mobile device or emulator
+
+# NOTE: Training and evaluation are now automated via scripts/train.py and scripts/evaluate.py. Model comparison summary is written to models/model_comparison.txt.
 
 ---
 

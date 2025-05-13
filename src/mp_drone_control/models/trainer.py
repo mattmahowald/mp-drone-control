@@ -7,18 +7,22 @@ from torch.utils.data import DataLoader
 
 import wandb
 
-from mp_drone_control.models.mobilenet import LandmarkClassifier
+from mp_drone_control.models.mobilenet import (
+    LandmarkClassifier,
+    LargeLandmarkClassifier,
+)
 from mp_drone_control.data.loaders import get_dataloader
 
 
 def train(
     data_dir: Path,
-    num_epochs: int = 20,
+    num_epochs: int = 10,
     batch_size: int = 64,
     lr: float = 1e-3,
     device: Optional[str] = None,
     save_path: Optional[Path] = None,
     project_name: str = "hand-gesture-recognition",
+    model_name: str = "small",  # 'small' or 'large'
 ):
     # Setup device
     device = device or (
@@ -32,7 +36,12 @@ def train(
     train_loader = get_dataloader(data_dir, split="train", batch_size=batch_size)
 
     # Initialize model
-    model = LandmarkClassifier(input_dim=63, num_classes=10).to(device)
+    if model_name == "large":
+        model = LargeLandmarkClassifier(input_dim=63, num_classes=10).to(device)
+        wandb_model_name = "LargeLandmarkClassifier"
+    else:
+        model = LandmarkClassifier(input_dim=63, num_classes=10).to(device)
+        wandb_model_name = "LandmarkClassifier"
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
 
@@ -43,7 +52,7 @@ def train(
             "epochs": num_epochs,
             "batch_size": batch_size,
             "learning_rate": lr,
-            "model": "LandmarkClassifier",
+            "model": wandb_model_name,
             "input_dim": 63,
             "num_classes": 10,
         },
@@ -83,3 +92,87 @@ def train(
         print(f"💾 Model saved to {save_path}")
 
     wandb.finish()
+
+
+def train_and_save_all_models(
+    data_dir: Path,
+    num_epochs: int = 20,
+    batch_size: int = 64,
+    lr: float = 1e-3,
+    device: Optional[str] = None,
+    save_dir: Optional[Path] = None,
+    project_name: str = "hand-gesture-recognition",
+):
+    """Train and save both small and large models."""
+    save_dir = save_dir or Path("models/")
+    save_dir.mkdir(parents=True, exist_ok=True)
+    for model_name in ["small", "large"]:
+        save_path = save_dir / f"{model_name}_model.pth"
+        print(f"\n=== Training {model_name} model ===")
+        train(
+            data_dir=data_dir,
+            num_epochs=num_epochs,
+            batch_size=batch_size,
+            lr=lr,
+            device=device,
+            save_path=save_path,
+            project_name=project_name,
+            model_name=model_name,
+        )
+        print(f"{model_name.capitalize()} model saved to {save_path}")
+
+
+def evaluate_model(
+    model_name: str,
+    checkpoint_path: Path,
+    data_dir: Path,
+    split: str = "test",
+    device: Optional[str] = None,
+):
+    """Evaluate a saved model on a given dataset split."""
+    from sklearn.metrics import accuracy_score, f1_score, classification_report
+
+    device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    if model_name == "large":
+        model = LargeLandmarkClassifier(input_dim=63, num_classes=10).to(device)
+    else:
+        model = LandmarkClassifier(input_dim=63, num_classes=10).to(device)
+    model.load_state_dict(torch.load(checkpoint_path, map_location=device))
+    model.eval()
+    loader = get_dataloader(data_dir, split=split, batch_size=64, shuffle=False)
+    all_preds, all_labels = [], []
+    with torch.no_grad():
+        for X, y in loader:
+            X, y = X.to(device), y.to(device)
+            logits = model(X)
+            preds = logits.argmax(dim=1)
+            all_preds.append(preds.cpu())
+            all_labels.append(y.cpu())
+    all_preds = torch.cat(all_preds).numpy()
+    all_labels = torch.cat(all_labels).numpy()
+    acc = accuracy_score(all_labels, all_preds)
+    f1 = f1_score(all_labels, all_preds, average="weighted")
+    print(f"Accuracy: {acc:.4f}, F1: {f1:.4f}")
+    print(classification_report(all_labels, all_preds, digits=3))
+    return acc, f1
+
+
+def export_model_to_onnx(model_name: str, checkpoint_path: Path, export_path: Path):
+    """Export a trained model to ONNX format for mobile deployment."""
+    if model_name == "large":
+        model = LargeLandmarkClassifier(input_dim=63, num_classes=10)
+    else:
+        model = LandmarkClassifier(input_dim=63, num_classes=10)
+    model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
+    model.eval()
+    dummy_input = torch.randn(1, 63)
+    torch.onnx.export(
+        model,
+        dummy_input,
+        export_path,
+        input_names=["input"],
+        output_names=["output"],
+        dynamic_axes={"input": {0: "batch_size"}, "output": {0: "batch_size"}},
+        opset_version=12,
+    )
+    print(f"Model exported to {export_path}")
