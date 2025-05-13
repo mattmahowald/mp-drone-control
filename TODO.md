@@ -1,21 +1,20 @@
-# 🧠 TODO.md — Hand Gesture Recognition (CS231n Project)
+# TODO.md — Hand Gesture Recognition (CS231n Project)
 
-## 📅 Project Timeline
+## Project Timeline
 
-- **Proposal Submitted:** ✅ April 25
-- **Milestone Due:** 📍 May 16
-- **Final Report Due:** 📍 June 4
-- **Poster + Code Submission:** 📍 June 11
+- **Proposal Submitted:** April 25
+- **Milestone Due:** May 16
+- **Final Report Due:** June 4
+- **Poster + Code Submission:** June 11
 
-## ✅ Out of Scope
+## Out of Scope for Milestone
 
-- ❌ Drone integration or control
-- ❌ Non-visual modalities (e.g. voice or text-based commands)
-- ❌ Deployment to hardware beyond a basic demo
+- Drone integration or control
+- Deployment to hardware beyond a basic demo
 
 ---
 
-## 🗂️ 1. Download & Create Template
+## 1. Download & Create Template
 
 ### Tasks
 
@@ -31,7 +30,7 @@
 
 ---
 
-## 📚 2. GPT-Aided Literature Review
+## 2. GPT-Aided Literature Review
 
 ### Tasks
 
@@ -45,7 +44,7 @@
 
 ---
 
-## 📦 3. Get Dataset Processed and Repo into GitHub
+## 3. Get Dataset Processed and Repo into GitHub
 
 ### Tasks
 
@@ -59,24 +58,20 @@
   - [x] Load raw keypoints
   - [x] Label samples by hand signal
   - [x] Normalize and augment data (optional)
-- [ ] Split dataset into train/val/test splits (see Task 6)
-- [ ] Commit preprocessing pipeline and dataset loader
+- [x] Split dataset into train/val/test splits (see Task 6)
+- [x] Commit preprocessing pipeline and dataset loader
 
 ---
 
-## ✋ 4. Determine Hand Signals to Use
+## 4. Determine Hand Signals to Use
 
 ### Tasks
 
-- [ ] Define 5–8 unique hand gestures (not for drone control)
-  - e.g., "thumbs up", "peace", "stop", "fist", "open palm", "OK", etc.
-- [ ] Sketch or source images for each
-- [ ] Write clear labels for annotation
-- [ ] Add documentation on gesture class definitions
+- [ ] TBD
 
 ---
 
-## 🧠 5. Draft a Model Recognizing Hand Signals
+## 5. Draft a Model Recognizing Hand Signals
 
 ### Tasks
 
@@ -90,18 +85,18 @@
 
 ---
 
-## 🧪 6. Split Dataset and Document Results
+## 6. Split Dataset and Document Results
 
 ### Tasks
 
-- [ ] Ensure representative stratified splits (train / val / test)
+- [x] Ensure representative stratified splits (train / val / test)
   - [ ] Validate across participants if custom dataset is collected
 - [ ] Document class balance and preprocessing steps
 - [ ] Write data section of milestone report
 
 ---
 
-## 📹 7. Get Code Detecting Hand Signals via Live Video
+## 7. Get Code Detecting Hand Signals via Live Video
 
 ### Tasks
 
@@ -114,7 +109,7 @@
 
 ---
 
-## 📈 Evaluation & Reporting
+## Evaluation & Reporting
 
 ### Quantitative
 
@@ -129,7 +124,7 @@
 
 ---
 
-## 🧾 Final Report Checklist (Due June 4)
+## Final Report Checklist (Due June 4)
 
 - [ ] Title, Author(s)
 - [ ] Abstract
@@ -145,7 +140,8 @@
 
 ---
 
-## 📌 Notes
+## Notes
 
 - Cite all third-party code, including MediaPipe and MobileNet sources
 - Update this file weekly with progress (or move to `docs/` directory with changelog)
+- The data split logic is now reusable and tested in `src/mp_drone_control/data/preprocess.py`.

@@ -4,6 +4,9 @@ import torch
 from pathlib import Path
 from mp_drone_control.models.mobilenet import LandmarkClassifier
 import mediapipe as mp
+from mp_drone_control.utils.logging_config import setup_logging
+
+logger = setup_logging()
 
 
 # Load model
@@ -12,6 +15,7 @@ def load_model(checkpoint_path: Path, device: str = "cpu") -> LandmarkClassifier
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
     model.to(device)
     model.eval()
+    logger.info(f"Loaded model from {checkpoint_path} and set to {device}")
     return model
 
 

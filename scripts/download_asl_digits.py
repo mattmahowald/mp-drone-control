@@ -2,6 +2,9 @@ import zipfile
 import requests
 import shutil
 from pathlib import Path
+from mp_drone_control.utils.logging_config import setup_logging
+
+logger = setup_logging()
 
 
 def download_and_extract(url: str, output_dir: Path):
@@ -10,16 +13,16 @@ def download_and_extract(url: str, output_dir: Path):
     temp_dir = output_dir / "temp_extract"
 
     if not zip_path.exists():
-        print(f"⬇️  Downloading dataset to {zip_path}")
+        logger.info(f"Downloading dataset to {zip_path}")
         with requests.get(url, stream=True) as r:
             r.raise_for_status()
             with open(zip_path, "wb") as f:
                 for chunk in r.iter_content(chunk_size=8192):
                     f.write(chunk)
     else:
-        print("✅ Zip already exists. Skipping download.")
+        logger.info("Zip already exists. Skipping download.")
 
-    print("📦 Unzipping...")
+    logger.info("Unzipping...")
     # Extract to a temporary directory first
     temp_dir.mkdir(exist_ok=True)
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
@@ -33,9 +36,9 @@ def download_and_extract(url: str, output_dir: Path):
         if target_dir.exists():
             shutil.rmtree(target_dir)
         shutil.move(str(dataset_dir), str(target_dir))
-        print(f"✅ Dataset organized in {target_dir}")
+        logger.info(f"Dataset organized in {target_dir}")
     else:
-        print("❌ Could not find Dataset directory in extracted files")
+        logger.error("Could not find Dataset directory in extracted files")
 
     # Clean up temporary directory and zip file
     shutil.rmtree(temp_dir)

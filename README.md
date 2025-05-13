@@ -71,11 +71,32 @@ make inference   # Run inference script
   - `inference/`: Code for model inference
   - `models/`: Model architectures and training code
   - `data/`: Data processing utilities
+    - `preprocess.py`: Reusable data preprocessing module (stratified splitting, config, saving splits)
   - `evaluation/`: Model evaluation scripts
 - `notebooks/`: Jupyter notebooks for exploration and analysis
 - `tests/`: Unit tests
 - `data/`: Dataset storage
 - `wandb/`: Weights & Biases logging directory
+
+## Data Preprocessing & Splitting
+
+The project provides a reusable data preprocessing module at `src/mp_drone_control/data/preprocess.py`:
+
+- `PreprocessingConfig`: Configuration for split sizes and reproducibility.
+- `split_data`: Stratified train/val/test split using scikit-learn.
+- `save_splits`: Save splits to disk as .npy files.
+
+**Example usage:**
+
+```python
+from mp_drone_control.data.preprocess import PreprocessingConfig, split_data, save_splits
+
+config = PreprocessingConfig(val_size=0.15, test_size=0.15, random_state=42)
+splits = split_data(landmarks, labels, config)
+save_splits(splits, output_dir)
+```
+
+The main data processing script (`scripts/process_asl_data.py`) uses this module for all splitting and saving operations.
 
 ## Usage
 

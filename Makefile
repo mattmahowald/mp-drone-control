@@ -47,15 +47,16 @@ clean: ## Clean up Python cache files
 demo: ## Run live demo
 	$(POETRY) run python scripts/demo_live.py
 
-asl-data: ## ASL dataset
+asl-data: ## Process ASL dataset
+	$(MAKE) wipe-data
 	$(MAKE) download-data
-	$(MAKE) extract-data
+	$(MAKE) process-data
 
 download-data: ## Download ASL dataset
 	$(POETRY) run python scripts/download_asl_digits.py
 
-extract-data: ## Extract ASL dataset
-	$(POETRY) run python scripts/extract_asl_landmarks.py
+process-data: ## Process ASL dataset (extract landmarks and split into train/val/test)
+	$(POETRY) run python scripts/process_asl_data.py
 
 wipe-data: ## Wipe ASL dataset
 	rm -rf data/raw/asl_digits
@@ -63,3 +64,6 @@ wipe-data: ## Wipe ASL dataset
 
 train: ## Train model
 	$(POETRY) run python scripts/train.py
+
+evaluate-baseline: ## Evaluate model against MediaPipe baseline
+	$(POETRY) run python scripts/evaluate_baseline.py

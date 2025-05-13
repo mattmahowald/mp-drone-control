@@ -10,4 +10,4 @@ def test_landmark_classifier_forward_pass():
     output = model(dummy_input)
 
     assert output.shape == (8, 10), f"Expected output shape (8, 10), got {output.shape}"
-    print("✅ test_landmark_classifier_forward_pass passed.")
+    print("test_landmark_classifier_forward_pass passed.")
