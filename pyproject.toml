@@ -28,6 +28,7 @@ dependencies = [
 ]
 
 [tool.poetry]
+packages = [{ include = "mp_drone_control", from = "src" }]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.5"
@@ -39,3 +40,5 @@ ipykernel = "^6.29.5"
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+

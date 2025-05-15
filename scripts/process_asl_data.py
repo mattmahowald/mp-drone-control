@@ -1,196 +1,134 @@
 #!/usr/bin/env python3
+"""process_asl_data.py  ‑‑  Generic splitter for *landmark* gesture datasets
+
+Re‑implemented so it works for **our recorded hand‑gesture clips** instead of
+ expecting the ASL‑digits *image* dataset under a hard‑coded "Dataset" folder.
+
+Input folder structure (``--raw-dir``):
+    data/raw/<gesture_label>/*.npy
+Each ``.npy`` file can be either
+    • (T, 21, 3)   ‑‑ per‑frame MediaPipe 3‑D landmarks
+    • (T, 63)      ‑‑ already flattened per frame
+
+The script:
+    1. Recursively loads every ``.npy`` clip for every gesture label.
+    2. Converts each frame to a 63‑D vector (x₁…x₂₁, y₁…y₂₁, z₁…z₂₁).
+    3. Produces **class‑balanced** train/val/test splits using
+       ``sklearn.model_selection.train_test_split``.
+    4. Saves
+          processed_dir/train_X.npy, train_y.npy
+          processed_dir/val_X.npy,   val_y.npy
+          processed_dir/test_X.npy,  test_y.npy
+       where *X* is ``float32`` (N, 63) and *y* is ``str`` (N,) for readability.
+
+Example
+-------
+$ poetry run python scripts/process_asl_data.py \
+        --raw-dir       data/raw \
+        --processed-dir data/processed/custom \
+        --val-size 0.15 --test-size 0.15
 """
-Script to process ASL dataset:
-1. Extract landmarks from images using MediaPipe
-2. Split data into train/val/test sets
-3. Save processed splits
-"""
+from __future__ import annotations
 
 import argparse
-import sys
+import json
 from pathlib import Path
-from typing import Tuple, Dict
+from typing import Tuple, List
 
-import cv2
 import numpy as np
-import mediapipe as mp
-from tqdm import tqdm
-from mp-drone-control.utils.logging_config import setup_logging
-from mp-drone-control.data.preprocess import (
-    PreprocessingConfig,
-    split_data,
-    save_splits,
-)
+from sklearn.model_selection import train_test_split
 
-# Set up logging for the entire project
-logger = setup_logging()
+# --------------------------------------------------------------------------------------
+# Utility funcs
+# --------------------------------------------------------------------------------------
 
-
-def extract_keypoints_from_image(image_path: Path) -> np.ndarray | None:
-    """
-    Run MediaPipe on an image and return 21 (x, y, z) landmarks, or None.
-    """
-    img = cv2.imread(str(image_path))
-    if img is None:
-        logger.warning(f"Failed to read image: {image_path}")
-        return None
-
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    results = mp_hands_config.process(img_rgb)
-
-    if not results.multi_hand_landmarks:
-        logger.debug(f"No hand landmarks detected in: {image_path}")
-        return None
-
-    landmarks = results.multi_hand_landmarks[0]
-    keypoints = np.array(
-        [[lm.x, lm.y, lm.z] for lm in landmarks.landmark], dtype=np.float32
-    )
-    return keypoints  # shape (21, 3)
+def _flatten_clip(arr: np.ndarray) -> np.ndarray:
+    """Return (frames, 63) regardless of input shape."""
+    if arr.ndim == 3 and arr.shape[1:] == (21, 3):
+        # (T, 21, 3) → (T, 63)
+        return arr.reshape(arr.shape[0], 63)
+    if arr.ndim == 2 and arr.shape[1] == 63:
+        return arr
+    raise ValueError(f"Unsupported landmark shape {arr.shape}, expected (T,21,3) or (T,63).")
 
 
-def extract_landmarks(dataset_dir: Path) -> Tuple[np.ndarray, np.ndarray]:
-    """
-    Walk through ASL digit dataset folders and extract landmarks from each image.
-
-    Returns:
-        Tuple of (landmarks, labels) arrays
-    """
-    X = []
-    y = []
-    total_processed = 0
-    total_skipped = 0
-
-    # Get all label directories first
-    label_dirs = [d for d in sorted((dataset_dir / "Dataset").iterdir()) if d.is_dir()]
-
-    logger.info(f"Found {len(label_dirs)} classes to process")
-
-    # Main progress bar for classes
-    with tqdm(label_dirs, desc="Processing classes", position=0) as class_pbar:
-        for label_dir in class_pbar:
-            class_label = int(label_dir.name)
-            image_paths = list(label_dir.glob("*.JPG"))
-
-            class_pbar.set_description(f"Processing class '{class_label}'")
-            logger.info(
-                f"Processing class '{class_label}' with {len(image_paths)} images"
-            )
-
-            # Progress bar for images within each class
-            with tqdm(
-                image_paths, desc="Processing images", position=1, leave=False
-            ) as img_pbar:
-                for image_path in img_pbar:
-                    keypoints = extract_keypoints_from_image(image_path)
-                    if keypoints is not None and keypoints.shape == (21, 3):
-                        X.append(keypoints)
-                        y.append(class_label)
-                        total_processed += 1
-                    else:
-                        total_skipped += 1
-
-                    img_pbar.set_postfix(
-                        {"processed": total_processed, "skipped": total_skipped}
-                    )
-
-    X = np.array(X, dtype=np.float32)
-    y = np.array(y, dtype=np.int64)
-
-    logger.info(f"Extraction complete!")
-    logger.info(f"Total samples processed: {len(X)}")
-    logger.info(f"Total samples skipped: {total_skipped}")
-    logger.info(f"X shape: {X.shape}, y shape: {y.shape}")
-
+def _load_dataset(raw_root: Path) -> Tuple[np.ndarray, np.ndarray]:
+    X_frames: List[np.ndarray] = []
+    y_frames: List[str] = []
+    for label_dir in sorted(raw_root.iterdir()):
+        if not label_dir.is_dir():
+            continue
+        label = label_dir.name
+        clip_files = sorted(label_dir.glob("*.npy"))
+        if not clip_files:
+            print(f"⚠️  no .npy clips found for label '{label}' → skipping")
+            continue
+        for clip_f in clip_files:
+            clip = np.load(clip_f)
+            frames = _flatten_clip(clip)
+            X_frames.append(frames)
+            y_frames.extend([label] * frames.shape[0])
+    if not X_frames:
+        raise RuntimeError(f"No data found under {raw_root}")
+    X = np.vstack(X_frames).astype(np.float32)
+    y = np.array(y_frames)
     return X, y
 
 
-def process_pipeline(
-    raw_data_dir: Path,
-    processed_data_dir: Path,
-    config: PreprocessingConfig,
-) -> None:
-    """
-    Complete processing pipeline:
-    1. Extract landmarks from images
-    2. Split into train/val/test sets
-    3. Save processed splits
+# --------------------------------------------------------------------------------------
+# Main CLI entry
+# --------------------------------------------------------------------------------------
 
-    Args:
-        raw_data_dir: Directory containing raw ASL dataset
-        processed_data_dir: Directory to save processed data
-        config: Preprocessing configuration
-    """
-    logger.info("Starting ASL dataset processing pipeline")
-    logger.info(f"Raw data directory: {raw_data_dir}")
-    logger.info(f"Processed data directory: {processed_data_dir}")
+def main() -> None:
+    ap = argparse.ArgumentParser(description="Convert raw gesture .npy clips into train/val/test splits.")
+    ap.add_argument("--raw-dir", type=Path, required=True, help="Folder with per‑gesture subfolders of .npy clips.")
+    ap.add_argument("--processed-dir", type=Path, required=True, help="Output folder for the split .npy arrays.")
+    ap.add_argument("--val-size", type=float, default=0.15, help="Fraction of data to use for validation.")
+    ap.add_argument("--test-size", type=float, default=0.15, help="Fraction of data to use for testing.")
+    ap.add_argument("--seed", type=int, default=42, help="Random seed for reproducibility.")
+    args = ap.parse_args()
 
-    # Extract landmarks
-    landmarks, labels = extract_landmarks(raw_data_dir)
+    raw_root: Path = args.raw_dir
+    out_root: Path = args.processed_dir
+    out_root.mkdir(parents=True, exist_ok=True)
 
-    # Split data
-    splits = split_data(landmarks, labels, config)
+    print(f"📂 Loading raw clips from {raw_root} …")
+    X, y = _load_dataset(raw_root)
+    print(f"   → {X.shape[0]:,} frames, {len(set(y))} gesture classes")
 
-    # Save splits
-    save_splits(splits, processed_data_dir)
+    # First split off the test set, then split the remaining into train/val so that
+    # val_size is exactly the user‑specified proportion of the *original* dataset.
+    X_tmp, X_test, y_tmp, y_test = train_test_split(
+        X, y, test_size=args.test_size, stratify=y, random_state=args.seed)
 
-    logger.info("Processing pipeline complete")
+    val_ratio = args.val_size / (1.0 - args.test_size)
+    X_train, X_val, y_train, y_val = train_test_split(
+        X_tmp, y_tmp, test_size=val_ratio, stratify=y_tmp, random_state=args.seed)
+
+    # Save arrays
+    np.save(out_root / "train_X.npy", X_train)
+    np.save(out_root / "train_y.npy", y_train)
+    np.save(out_root / "val_X.npy", X_val)
+    np.save(out_root / "val_y.npy", y_val)
+    np.save(out_root / "test_X.npy", X_test)
+    np.save(out_root / "test_y.npy", y_test)
+
+    # Metadata for humans / reproducibility
+    meta = {
+        "num_frames": int(X.shape[0]),
+        "num_classes": len(set(y)),
+        "train_frames": int(X_train.shape[0]),
+        "val_frames": int(X_val.shape[0]),
+        "test_frames": int(X_test.shape[0]),
+        "val_size": args.val_size,
+        "test_size": args.test_size,
+        "seed": args.seed,
+    }
+    with open(out_root / "meta.json", "w") as f:
+        json.dump(meta, f, indent=2)
+
+    print(f"✅ Saved splits to {out_root} (see meta.json for stats)")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Process ASL dataset")
-    parser.add_argument(
-        "--raw-dir",
-        type=Path,
-        default=Path("data/raw/asl_digits"),
-        help="Directory containing raw ASL dataset",
-    )
-    parser.add_argument(
-        "--processed-dir",
-        type=Path,
-        default=Path("data/processed/asl_digits"),
-        help="Directory to save processed data",
-    )
-    parser.add_argument(
-        "--val-size",
-        type=float,
-        default=0.15,
-        help="Proportion of data to use for validation",
-    )
-    parser.add_argument(
-        "--test-size",
-        type=float,
-        default=0.15,
-        help="Proportion of data to use for testing",
-    )
-    parser.add_argument(
-        "--seed",
-        type=int,
-        default=42,
-        help="Random seed for reproducibility",
-    )
-
-    args = parser.parse_args()
-
-    # Initialize MediaPipe
-    mp_hands = mp.solutions.hands
-    mp_hands_config = mp_hands.Hands(
-        static_image_mode=True, max_num_hands=1, min_detection_confidence=0.5
-    )
-
-    # Create config
-    config = PreprocessingConfig(
-        val_size=args.val_size,
-        test_size=args.test_size,
-        random_state=args.seed,
-    )
-
-    try:
-        process_pipeline(
-            raw_data_dir=args.raw_dir,
-            processed_data_dir=args.processed_dir,
-            config=config,
-        )
-    except Exception as e:
-        logger.error(f"Processing failed: {e}")
-        raise
+    main()
