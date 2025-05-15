@@ -15,8 +15,8 @@ import cv2
 import numpy as np
 import mediapipe as mp
 from tqdm import tqdm
-from mp_drone_control.utils.logging_config import setup_logging
-from mp_drone_control.data.preprocess import (
+from mp-drone-control.utils.logging_config import setup_logging
+from mp-drone-control.data.preprocess import (
     PreprocessingConfig,
     split_data,
     save_splits,
