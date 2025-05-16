@@ -33,14 +33,14 @@ def train(
     print(f"📟 Using device: {device}")
 
     # Load dataset
-    train_loader = get_dataloader(data_dir, split="train", batch_size=batch_size)
+    train_loader = get_dataloader(data_dir, split="train", batch_size=batch_size, normalize=False)
 
     # Initialize model
     if model_name == "large":
-        model = LargeLandmarkClassifier(input_dim=63, num_classes=10).to(device)
+        model = LargeLandmarkClassifier(input_dim=63, num_classes=11).to(device)
         wandb_model_name = "LargeLandmarkClassifier"
     else:
-        model = LandmarkClassifier(input_dim=63, num_classes=10).to(device)
+        model = LandmarkClassifier(input_dim=63, num_classes=11).to(device)
         wandb_model_name = "LandmarkClassifier"
     optimizer = optim.AdamW(model.parameters(), lr=lr)
     criterion = nn.CrossEntropyLoss()
@@ -54,7 +54,7 @@ def train(
             "learning_rate": lr,
             "model": wandb_model_name,
             "input_dim": 63,
-            "num_classes": 10,
+            "num_classes": 11,
         },
     )
     wandb.watch(model, log="all")
@@ -134,12 +134,12 @@ def evaluate_model(
 
     device = device or ("cuda" if torch.cuda.is_available() else "cpu")
     if model_name == "large":
-        model = LargeLandmarkClassifier(input_dim=63, num_classes=10).to(device)
+        model = LargeLandmarkClassifier(input_dim=63, num_classes=11).to(device)
     else:
-        model = LandmarkClassifier(input_dim=63, num_classes=10).to(device)
+        model = LandmarkClassifier(input_dim=63, num_classes=11).to(device)
     model.load_state_dict(torch.load(checkpoint_path, map_location=device))
     model.eval()
-    loader = get_dataloader(data_dir, split=split, batch_size=64, shuffle=False)
+    loader = get_dataloader(data_dir, split=split, batch_size=64, shuffle=False, normalize=False)
     all_preds, all_labels = [], []
     with torch.no_grad():
         for X, y in loader:
@@ -160,9 +160,9 @@ def evaluate_model(
 def export_model_to_onnx(model_name: str, checkpoint_path: Path, export_path: Path):
     """Export a trained model to ONNX format for mobile deployment."""
     if model_name == "large":
-        model = LargeLandmarkClassifier(input_dim=63, num_classes=10)
+        model = LargeLandmarkClassifier(input_dim=63, num_classes=11)
     else:
-        model = LandmarkClassifier(input_dim=63, num_classes=10)
+        model = LandmarkClassifier(input_dim=63, num_classes=11)
     model.load_state_dict(torch.load(checkpoint_path, map_location="cpu"))
     model.eval()
     dummy_input = torch.randn(1, 63)

@@ -12,10 +12,16 @@ class HandLandmarkDataset(Dataset):
     Assumes shape (N, 21, 3) for landmarks and (N,) for integer labels.
     """
 
-    def __init__(self, data_path: Path, label_path: Path, normalize: bool = True):
-        self.landmarks = np.load(data_path)  # shape: (N, 21, 3)
-        self.labels = np.load(label_path)  # shape: (N,)
-        self.normalize = normalize
+    def __init__(self, X_path: Path, y_path: Path, normalize=False):
+        self.landmarks = np.load(X_path)        # (N, 63) or (N, 21, 3)
+        self.labels    = np.load(y_path)        # array of strings
+
+        # 🔑 build mapping once
+        uniques            = sorted(set(self.labels))
+        self.label2idx     = {lbl: i for i, lbl in enumerate(uniques)}
+        self.idx2label     = uniques            # optional, handy for debug
+        self.labels_int    = np.array([self.label2idx[l] for l in self.labels],
+                                      dtype=np.int64)
 
         if normalize:
             self.landmarks = self._normalize_landmarks(self.landmarks)
@@ -41,13 +47,9 @@ class HandLandmarkDataset(Dataset):
         return len(self.landmarks)
 
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, int]:
-        """Get a single sample and its label."""
-        x = torch.tensor(self.landmarks[idx], dtype=torch.float32)  # (21, 3)
-        y = int(self.labels[idx])
-
-        # Flatten to (63,) vector and ensure it's contiguous
-        x = x.reshape(-1).contiguous()
-
+        x = torch.tensor(self.landmarks[idx], dtype=torch.float32)
+        y = int(self.labels_int[idx])           # ✅ always an int now
+        x = x.reshape(-1).contiguous()          # (63,)
         return x, y
 
 
