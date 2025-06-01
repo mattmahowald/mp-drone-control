@@ -1,0 +1,10 @@
+takeoff
+land
+hover
+forward
+backward
+left
+right
+rotate_left
+rotate_right
+stop
