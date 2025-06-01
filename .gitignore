@@ -179,7 +179,11 @@ cython_debug/
 
 # Data
 data/raw/
-data/processed/
+# data/processed/  # Temporarily commented out to allow custom data
+data/processed/*
+!data/processed/custom/
+!data/processed/custom/*.npy
+!data/processed/custom/*.json
 data/interim/
 models/
 wandb/
