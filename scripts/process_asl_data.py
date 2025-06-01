@@ -53,30 +53,22 @@ def _flatten_clip(arr: np.ndarray) -> np.ndarray:
     raise ValueError(f"Unsupported landmark shape {arr.shape}, expected (T,21,3) or (T,63).")
 
 
-def _load_dataset(raw_dir: Path) -> tuple[np.ndarray, np.ndarray]:
-    """Load all .npy clips from the raw directory."""
-    clips = []
-    labels = []
-    for label_dir in raw_dir.iterdir():
-        if not label_dir.is_dir():
+def _load_dataset(raw_root: Path):
+    X, y = [], []
+    for p in raw_root.rglob("*.npy"):
+        clip = np.load(p)          # (N,63) or (N,21,3)
+        if clip.ndim == 3:         # legacy (N,21,3) => (N,63)
+            clip = clip.reshape(clip.shape[0], -1)
+        if clip.shape[1] != 63:
+            print(f"[skip] {p} shape={clip.shape}")
             continue
-        label = label_dir.name
-        for clip_path in label_dir.glob("*.npy"):
-            try:
-                clip = np.load(clip_path, allow_pickle=True)
-                if clip is None or clip.size == 0:
-                    logging.warning(f"Skipping empty clip: {clip_path}")
-                    continue
-                clips.append(clip)
-                labels.append(label)
-            except Exception as e:
-                logging.error(f"Error loading {clip_path}: {e}")
-                continue
 
-    if not clips:
-        raise ValueError(f"No .npy clips found for any label in {raw_dir}")
+        label = p.parent.name      # assumes folder name == gesture
+        for frame in clip:         # <-- explode into individual frames
+            X.append(frame)        # (63,)
+            y.append(label)
 
-    return np.array(clips), np.array(labels)
+    return np.array(X), np.array(y)
 
 
 # --------------------------------------------------------------------------------------

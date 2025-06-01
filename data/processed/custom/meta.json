@@ -1,9 +1,9 @@
 {
-  "num_frames": 8250,
-  "num_classes": 11,
-  "train_frames": 5774,
-  "val_frames": 1238,
-  "test_frames": 1238,
+  "num_frames": 25737,
+  "num_classes": 21,
+  "train_frames": 18015,
+  "val_frames": 3861,
+  "test_frames": 3861,
   "val_size": 0.15,
   "test_size": 0.15,
   "seed": 42
