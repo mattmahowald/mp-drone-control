@@ -37,6 +37,7 @@ from typing import Tuple, List
 
 import numpy as np
 from sklearn.model_selection import train_test_split
+import logging
 
 # --------------------------------------------------------------------------------------
 # Utility funcs
@@ -52,31 +53,30 @@ def _flatten_clip(arr: np.ndarray) -> np.ndarray:
     raise ValueError(f"Unsupported landmark shape {arr.shape}, expected (T,21,3) or (T,63).")
 
 
-def _load_dataset(raw_root: Path) -> Tuple[np.ndarray, np.ndarray]:
-    X_frames: List[np.ndarray] = []
-    y_frames: List[str] = []
-    for label_dir in sorted(raw_root.iterdir()):
+def _load_dataset(raw_dir: Path) -> tuple[np.ndarray, np.ndarray]:
+    """Load all .npy clips from the raw directory."""
+    clips = []
+    labels = []
+    for label_dir in raw_dir.iterdir():
         if not label_dir.is_dir():
             continue
         label = label_dir.name
-        clip_files = sorted(label_dir.glob("*.npy"))
-        if not clip_files:
-            print(f"⚠️  no .npy clips found for label '{label}' → skipping")
-            continue
-        for clip_f in clip_files:
+        for clip_path in label_dir.glob("*.npy"):
             try:
-                clip = np.load(clip_f, allow_pickle=True)  # Allow pickle data
-                frames = _flatten_clip(clip)
-                X_frames.append(frames)
-                y_frames.extend([label] * frames.shape[0])
+                clip = np.load(clip_path, allow_pickle=True)
+                if clip is None or clip.size == 0:
+                    logging.warning(f"Skipping empty clip: {clip_path}")
+                    continue
+                clips.append(clip)
+                labels.append(label)
             except Exception as e:
-                print(f"⚠️  Error loading {clip_f}: {e} → skipping")
+                logging.error(f"Error loading {clip_path}: {e}")
                 continue
-    if not X_frames:
-        raise RuntimeError(f"No data found under {raw_root}")
-    X = np.vstack(X_frames).astype(np.float32)
-    y = np.array(y_frames)
-    return X, y
+
+    if not clips:
+        raise ValueError(f"No .npy clips found for any label in {raw_dir}")
+
+    return np.array(clips), np.array(labels)
 
 
 # --------------------------------------------------------------------------------------
