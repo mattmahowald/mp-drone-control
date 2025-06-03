@@ -9,7 +9,7 @@ This *replaces* the previous `LandmarkClassifier` / `LargeLandmarkClassifier`
 * **LandmarkMLPLarge**  – 63 → 256 → 128 → N (≈130 k params)
 
 All training / evaluation code now infers `num_classes` from the dataset, so
-there’s no hard‑coded **11** in sight.  WandB logging is kept, but symlink
+there's no hard‑coded **11** in sight.  WandB logging is kept, but symlink
 creation is disabled to avoid WinError 1314 on Windows.
 """
 
@@ -70,6 +70,9 @@ def train(
     train_loader = get_dataloader(
         data_dir, split="train", batch_size=batch_size, normalize=False
     )
+    val_loader = get_dataloader(
+        data_dir, split="val", batch_size=batch_size, normalize=False
+    )
     num_classes = len(train_loader.dataset.label2idx)
 
     # ── Model / optimiser / loss ─────────────────────────────────────────
@@ -85,33 +88,80 @@ def train(
     )
     wandb.watch(model, log="all")
 
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimiser, mode="max", factor=0.5, patience=3, verbose=True
+    )
+
+    early_patience = 6  # epochs to wait after val_acc stops improving
+    wait, best_acc = 0, 0.0
+
     # ── Training loop ────────────────────────────────────────────────────
-    best_acc = 0.0
-    for epoch in range(1, num_epochs + 1):
+    for epoch in range(num_epochs):
+        # Training phase
         model.train()
-        running_loss = 0.0
-        correct, total = 0, 0
+        tr_loss = tr_correct = tr_total = 0
+
         for xb, yb in train_loader:
             xb, yb = xb.to(device), yb.to(device)
             optimiser.zero_grad()
+
             logits = model(xb)
             loss = criterion(logits, yb)
             loss.backward()
             optimiser.step()
 
-            running_loss += loss.item() * yb.size(0)
-            correct += (logits.argmax(1) == yb).sum().item()
-            total += yb.size(0)
+            tr_loss += loss.item() * yb.size(0)
+            tr_correct += (logits.argmax(1) == yb).sum().item()
+            tr_total += yb.size(0)
 
-        epoch_loss = running_loss / total
-        epoch_acc = correct / total
-        wandb.log({"epoch": epoch, "loss": epoch_loss, "acc": epoch_acc})
-        print(f"📈 Epoch {epoch:02d}/{num_epochs} — Loss: {epoch_loss:.4f} | Acc: {epoch_acc:.4f}")
+        tr_loss /= tr_total
+        tr_acc = tr_correct / tr_total
 
-        if save_path and epoch_acc > best_acc:
-            best_acc = epoch_acc
-            torch.save(model.state_dict(), save_path)
-            print(f"💾 New best model saved to {save_path} (acc={best_acc:.4f})")
+        # ---------- Validation ----------
+        model.eval()
+        val_loss = val_correct = val_total = 0
+
+        with torch.no_grad():
+            for xb, yb in val_loader:
+                xb, yb = xb.to(device), yb.to(device)
+                logits = model(xb)
+                loss = criterion(logits, yb)
+
+                val_loss += loss.item() * yb.size(0)
+                val_correct += (logits.argmax(1) == yb).sum().item()
+                val_total += yb.size(0)
+
+        val_loss /= val_total
+        val_acc = val_correct / val_total
+
+        # ---------- Scheduler & logging ----------
+        scheduler.step(val_acc)
+
+        wandb.log({
+            "epoch": epoch,
+            "train/loss": tr_loss,
+            "train/acc": tr_acc,
+            "val/loss": val_loss,
+            "val/acc": val_acc,
+            "lr": optimiser.param_groups[0]["lr"],
+        })
+
+        print(f"📈 {epoch:02d}/{num_epochs} | "
+              f"tr_loss {tr_loss:.4f} tr_acc {tr_acc:.4f} | "
+              f"val_loss {val_loss:.4f} val_acc {val_acc:.4f}")
+
+        # ---------- Checkpoint / early-stop ----------
+        if val_acc > best_acc:
+            best_acc = val_acc
+            wait = 0
+            if save_path:
+                torch.save(model.state_dict(), save_path)
+                print(f"💾  New best model ({best_acc:.4f}) saved to {save_path}")
+        else:
+            wait += 1
+            if wait >= early_patience:
+                print(f"⏹️  Early stopping (no val-improvement for {early_patience} epochs)")
+                break
 
     wandb.finish()
 

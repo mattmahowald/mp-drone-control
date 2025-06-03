@@ -31,31 +31,53 @@ if __name__ == "__main__":
     ap.add_argument("--batch-size", type=int, default=256)
     ap.add_argument("--lr", type=float, default=1e-3)
     ap.add_argument("--save-dir", default="checkpoints")
+    ap.add_argument("--augment", action="store_true")
+    ap.add_argument('--seq-len', type=int, default=16)
+    ap.add_argument('--temporal-model', choices=['gru','tcn'], default=None)
+
     args = ap.parse_args()
 
     data_dir = Path(args.data_dir)
     save_dir = Path(args.save_dir)
     save_dir.mkdir(parents=True, exist_ok=True)
 
-    if args.model == "both":
-        logger.info("Training BOTH small and large MLPs …")
-        train_and_save_all_models(
-            data_dir=data_dir,
-            num_epochs=args.epochs,
-            batch_size=args.batch_size,
-            lr=args.lr,
-            save_dir=save_dir,
-        )
+    if args.temporal_model:
+        train_loader, val_loader, test_loader = get_seq_dataloaders(
+            args.data_dir, args.seq_len, augment=args.augment)
     else:
-        logger.info(f"Training {args.model} MLP for {args.epochs} epochs …")
-        ckpt = save_dir / f"landmark_mlp_{args.model}_best.pth"
-        train(
-            data_dir=data_dir,
-            num_epochs=args.epochs,
-            batch_size=args.batch_size,
-            lr=args.lr,
-            save_path=ckpt,
-            model_name=args.model,
+        train_loader, val_loader, test_loader = get_dataloader(
+            args.data_dir, split="train", batch_size=args.batch_size, normalize=False
+        ), get_dataloader(
+            args.data_dir, split="val", batch_size=args.batch_size, normalize=False
+        ), get_dataloader(
+            args.data_dir, split="test", batch_size=args.batch_size, normalize=False
         )
-        logger.info(f"✓ Model saved to {ckpt}")
+    
+    if args.temporal_model == 'gru':
+        model = GRUGesture(num_classes=n_cls).to(device)
+    elif args.temporal_model == 'tcn':
+        model = TemporalConvGesture(num_classes=n_cls).to(device)
+    else:
+
+        if args.model == "both":
+            logger.info("Training BOTH small and large MLPs …")
+            train_and_save_all_models(
+                data_dir=data_dir,
+                num_epochs=args.epochs,
+                batch_size=args.batch_size,
+                lr=args.lr,
+                save_dir=save_dir,
+            )
+        else:
+            logger.info(f"Training {args.model} MLP for {args.epochs} epochs …")
+            ckpt = save_dir / f"landmark_mlp_{args.model}_best.pth"
+            train(
+                data_dir=data_dir,
+                num_epochs=args.epochs,
+                batch_size=args.batch_size,
+                lr=args.lr,
+                save_path=ckpt,
+                model_name=args.model,
+            )
+            logger.info(f"✓ Model saved to {ckpt}")
 

@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from .augment import geom_aug, jitter
-import random
+import math
 
 class HandLandmarkDataset(Dataset):
     """
@@ -52,9 +52,16 @@ class HandLandmarkDataset(Dataset):
         x = torch.tensor(self.landmarks[idx], dtype=torch.float32)
         y = int(self.labels_int[idx])           # ✅ always an int now
         x = x.reshape(-1).contiguous()          # (63,)
-        if self.augment:   
-            x = geom_aug(x)
-            x = jitter(x)
+        if self.augment:
+            # Gaussian noise
+            x += torch.randn_like(x) * 0.01          # ~1 % jitter
+            # In-plane rotation
+            theta = torch.randn(1).item() * 0.15     # ±8.5°
+            R = torch.tensor([[math.cos(theta), -math.sin(theta), 0],
+                            [math.sin(theta),  math.cos(theta), 0],
+                            [0,                0,               1]])
+            x = (R @ x.view(21, 3).T).T.flatten()
+
         return x, y
 
 
