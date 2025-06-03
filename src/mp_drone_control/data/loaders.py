@@ -4,7 +4,8 @@ from typing import Tuple, List, Optional
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
-
+from .augment import geom_aug, jitter
+import random
 
 class HandLandmarkDataset(Dataset):
     """
@@ -12,9 +13,10 @@ class HandLandmarkDataset(Dataset):
     Assumes shape (N, 21, 3) for landmarks and (N,) for integer labels.
     """
 
-    def __init__(self, X_path: Path, y_path: Path, normalize=False):
+    def __init__(self, X_path: Path, y_path: Path, normalize=False, augment=True):
         self.landmarks = np.load(X_path)        # (N, 63) or (N, 21, 3)
         self.labels    = np.load(y_path)        # array of strings
+        self.augment   = augment
 
         # 🔑 build mapping once
         uniques            = sorted(set(self.labels))
@@ -50,6 +52,9 @@ class HandLandmarkDataset(Dataset):
         x = torch.tensor(self.landmarks[idx], dtype=torch.float32)
         y = int(self.labels_int[idx])           # ✅ always an int now
         x = x.reshape(-1).contiguous()          # (63,)
+        if self.augment:   
+            x = geom_aug(x)
+            x = jitter(x)
         return x, y
 
 

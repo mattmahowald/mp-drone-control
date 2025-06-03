@@ -35,6 +35,7 @@ def test_dataset_creation(temp_data_dir):
         data_path=temp_data_dir / "train_X.npy",
         label_path=temp_data_dir / "train_y.npy",
         normalize=True,
+        augment=True,
     )
 
     assert len(dataset) == 100
@@ -51,6 +52,7 @@ def test_dataset_normalization(temp_data_dir):
         data_path=temp_data_dir / "train_X.npy",
         label_path=temp_data_dir / "train_y.npy",
         normalize=True,
+        augment=True,
     )
 
     # Test without normalization
@@ -58,6 +60,7 @@ def test_dataset_normalization(temp_data_dir):
         data_path=temp_data_dir / "train_X.npy",
         label_path=temp_data_dir / "train_y.npy",
         normalize=False,
+        augment=True,
     )
 
     x_norm, _ = dataset_norm[0]
