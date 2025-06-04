@@ -1,0 +1,8 @@
+{
+  "model_type": "tcn",
+  "accuracy": 0.3128491620111732,
+  "macro_f1": 0.22572484072274604,
+  "num_test_samples": 179,
+  "num_classes": 11,
+  "seq_len": 16
+}

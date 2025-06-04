@@ -1,0 +1,8 @@
+{
+  "model_type": "gru",
+  "accuracy": 0.9106145251396648,
+  "macro_f1": 0.9071469175529657,
+  "num_test_samples": 179,
+  "num_classes": 11,
+  "seq_len": 16
+}
