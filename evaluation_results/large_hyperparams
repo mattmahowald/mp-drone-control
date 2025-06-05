@@ -1,0 +1,2 @@
+python scripts/train.py --data-dir data/processed/custom --model large --epochs 50 --batch-size 256 --lr 0.001
+

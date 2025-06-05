@@ -9,14 +9,19 @@ import math
 
 class HandLandmarkDataset(Dataset):
     """
-    Loads 21-point MediaPipe hand landmarks from a NumPy file or directory.
-    Assumes shape (N, 21, 3) for landmarks and (N,) for integer labels.
+    Loads hand features from a NumPy file or directory.
+    Handles both landmarks (N, 63) and joint angles (N, ~20).
     """
 
     def __init__(self, X_path: Path, y_path: Path, normalize=False, augment=True):
-        self.landmarks = np.load(X_path)        # (N, 63) or (N, 21, 3)
+        self.landmarks = np.load(X_path)        # (N, feature_dim)
         self.labels    = np.load(y_path)        # array of strings
         self.augment   = augment
+        
+        # Detect if this is landmark data or joint angle data
+        self.feature_dim = self.landmarks.shape[1]
+        self.is_landmarks = self.feature_dim == 63
+        self.is_joint_angles = self.feature_dim < 63  # Joint angles have fewer features
 
         # 🔑 build mapping once
         uniques            = sorted(set(self.labels))
@@ -25,25 +30,32 @@ class HandLandmarkDataset(Dataset):
         self.labels_int    = np.array([self.label2idx[l] for l in self.labels],
                                       dtype=np.int64)
 
-        if normalize:
+        if normalize and self.is_landmarks:
             self.landmarks = self._normalize_landmarks(self.landmarks)
 
     def _normalize_landmarks(self, landmarks: np.ndarray) -> np.ndarray:
         """Normalize landmarks to have wrist at origin and unit scale."""
+        # Only works for landmark data, not joint angles
+        if not self.is_landmarks:
+            return landmarks
+            
         # Make a copy to avoid modifying the original data
         landmarks = landmarks.copy()
 
+        # Reshape to (N, 21, 3) for normalization
+        landmarks_3d = landmarks.reshape(-1, 21, 3)
+
         # Set wrist as origin
-        wrist = landmarks[:, 0:1, :]  # shape (N, 1, 3)
-        landmarks = landmarks - wrist
+        wrist = landmarks_3d[:, 0:1, :]  # shape (N, 1, 3)
+        landmarks_3d = landmarks_3d - wrist
 
         # Scale to unit distance
-        max_dist = np.linalg.norm(landmarks, axis=-1).max(axis=1, keepdims=True)
-        landmarks = landmarks / (
+        max_dist = np.linalg.norm(landmarks_3d, axis=-1).max(axis=1, keepdims=True)
+        landmarks_3d = landmarks_3d / (
             max_dist[..., np.newaxis] + 1e-8
         )  # Add small epsilon to avoid division by zero
 
-        return landmarks
+        return landmarks_3d.reshape(-1, 63)
 
     def __len__(self) -> int:
         return len(self.landmarks)
@@ -51,8 +63,10 @@ class HandLandmarkDataset(Dataset):
     def __getitem__(self, idx: int) -> Tuple[torch.Tensor, int]:
         x = torch.tensor(self.landmarks[idx], dtype=torch.float32)
         y = int(self.labels_int[idx])           # ✅ always an int now
-        x = x.reshape(-1).contiguous()          # (63,)
-        if self.augment:
+        
+        if self.augment and self.is_landmarks:
+            # Only apply landmark-specific augmentation to landmark data
+            x = x.reshape(-1).contiguous()          # (63,)
             # Gaussian noise
             x += torch.randn_like(x) * 0.01          # ~1 % jitter
             # In-plane rotation
@@ -61,6 +75,11 @@ class HandLandmarkDataset(Dataset):
                             [math.sin(theta),  math.cos(theta), 0],
                             [0,                0,               1]])
             x = (R @ x.view(21, 3).T).T.flatten()
+        elif self.augment and self.is_joint_angles:
+            # Simple augmentation for joint angles - just add small noise
+            x += torch.randn_like(x) * 0.01
+        else:
+            x = x.reshape(-1).contiguous()
 
         return x, y
 

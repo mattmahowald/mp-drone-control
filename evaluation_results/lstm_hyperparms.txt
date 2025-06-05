@@ -1,0 +1,4 @@
+ python scripts/train.py --data-dir data/processed/custom --temporal-model lstm --seq-len 16 --batch-size 32 --epochs 150 --lr 0.001 --patience 100 --val-every 5
+
+ **early stopped after 25 epochs
+ 

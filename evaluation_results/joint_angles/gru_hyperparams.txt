@@ -1,0 +1,3 @@
+python scripts/train.py --data-dir data/processed/joint_angles --temporal-model gru --seq-len 16 --batch-size 32 --epochs 150 --lr 0.001 --patience 100 --val-every 5
+
+**early stop after 120 epochs 
